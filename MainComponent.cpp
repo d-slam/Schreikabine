@@ -8,6 +8,8 @@ MainComponent::MainComponent()
 	uiComponent.reset(new UIComponent(audioState));			addAndMakeVisible(uiComponent.get());
 	scopeComponent.reset(new ScopeComponent(audioState));	addAndMakeVisible(scopeComponent.get());
 	specComponent.reset(new SpecComponent(audioState));		addAndMakeVisible(specComponent.get());
+	audioGeraet.reset(new AudioGeraete());					addAndMakeVisible(audioGeraet.get());
+
 
 	setSize(1280, 1024);
 }
@@ -15,6 +17,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
 	shutdownAudio();
+	uiComponent, scopeComponent, specComponent = nullptr;
 }
 
 //==============================================================================
@@ -81,10 +84,13 @@ void MainComponent::resized()
 	juce::Rectangle<int> boundsScope(0, 0, getWidth() / 2, getHeight() / 2);
 	juce::Rectangle<int> boundsSpec(0, getHeight() / 2, getWidth() / 2, getHeight() / 2);
 	juce::Rectangle<int> boundsUi(getWidth() / 2, 0, getWidth() / 2, getHeight() / 2);
+	juce::Rectangle<int> boundsGeraet(getWidth() / 2, getHeight() / 2, getWidth() / 2, getHeight() / 2);
+
 
 
 	uiComponent->setBounds(boundsUi);
-
 	scopeComponent->setBounds(boundsScope);
 	specComponent->setBounds(boundsSpec);
+
+	audioGeraet->setBounds(boundsGeraet);
 }

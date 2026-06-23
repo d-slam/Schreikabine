@@ -5,6 +5,7 @@
 #include "SpecComponent.h"
 #include "AudioState.h"
 #include "UIComponent.h"
+#include "AudioGeraete.h"
 
 //==============================================================================
 /*
@@ -34,6 +35,7 @@ private:
 	std::unique_ptr<UIComponent> uiComponent;
 	std::unique_ptr<ScopeComponent> scopeComponent;
 	std::unique_ptr<SpecComponent> specComponent;
+	std::unique_ptr<AudioGeraete> audioGeraet;
 
 
 	juce::dsp::ProcessorDuplicator<
