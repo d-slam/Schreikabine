@@ -21,10 +21,33 @@ MainComponent::~MainComponent()
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate)
 {
 	audioState.currentSampleRate.store(sampleRate);
+
+	juce::dsp::ProcessSpec spec;
+	spec.sampleRate = sampleRate;
+	spec.maximumBlockSize = samplesPerBlockExpected;
+	spec.numChannels = 2;
+
+	filter.prepare(spec);
+
+	*filter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 30.0f); // 1 kHz Tiefpass
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
+	//filtern
+	auto& buffer = *bufferToFill.buffer;
+
+	juce::dsp::AudioBlock<float> block(
+		buffer.getArrayOfWritePointers(),
+		buffer.getNumChannels(),
+		bufferToFill.startSample,
+		bufferToFill.numSamples);
+
+	juce::dsp::ProcessContextReplacing<float> context(block);
+
+	filter.process(context);
+
+	// lesen
 	if (bufferToFill.buffer->getNumChannels() > 0)
 	{
 		auto* channelData = bufferToFill.buffer->getReadPointer(0, bufferToFill.startSample);
