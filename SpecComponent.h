@@ -10,7 +10,6 @@
 
 #pragma once
 
-
 #include <JuceHeader.h>
 #include "AudioState.h"
 
@@ -19,7 +18,11 @@ class SpecComponent : public juce::Component, private juce::Timer
 {
 public:
 
-	SpecComponent(AudioState& state) : audioState(state), forwardFFT(fftOrder), window(fftSize, juce::dsp::WindowingFunction<float>::hann), spectrogramImage(juce::Image::RGB, 512, 512, true)
+	SpecComponent(AudioState& state)
+		: audioState(state),
+		forwardFFT(fftOrder),
+		window(fftSize, juce::dsp::WindowingFunction<float>::hann),
+		spectrogramImage(juce::Image::RGB, 512, 512, true)
 	{
 		setSize(640, 512);
 		startTimerHz(60);
@@ -28,7 +31,7 @@ public:
 
 	void pushNextSampleIntoFifo(float sample) noexcept
 	{
-		if (fifoIndex == fftSize)
+		if (fifoIndex == fftSize / 8)
 		{
 			if (!nextFFTBlockReady)
 			{
@@ -48,17 +51,44 @@ public:
 	{
 		g.fillAll(juce::Colours::black);
 
+		g.setImageResamplingQuality(
+			juce::Graphics::highResamplingQuality);
+
+
 		constexpr int axisWidth = 55;
 
-		auto specArea = getLocalBounds().withTrimmedRight(axisWidth);
+		auto specArea =
+			getLocalBounds()
+			.withTrimmedRight(axisWidth);
 
-		g.drawImage(spectrogramImage, specArea.toFloat());
+
+		g.drawImage(
+			spectrogramImage,
+			specArea.toFloat());
+
 
 		drawFrequencyAxis(g, specArea);
 	}
 
+
+
+	void resized() override
+	{
+		constexpr int axisWidth = 55;
+
+		spectrogramImage =
+			juce::Image(
+				juce::Image::RGB,
+				juce::jmax(1, getWidth() - axisWidth),
+				juce::jmax(1, getHeight()),
+				true);
+	}
+
+
+
 	static constexpr auto fftOrder = 13;
 	static constexpr auto fftSize = 1 << fftOrder;
+
 
 
 private:
@@ -73,57 +103,99 @@ private:
 		juce::dsp::WindowingFunction<float>::hann
 	};
 
+
 	juce::Image spectrogramImage;
+
 
 	std::array<float, fftSize> fifo{};
 	std::array<float, fftSize * 2> fftData{};
 
+
 	int fifoIndex = 0;
 	bool nextFFTBlockReady = false;
 
+
 	AudioState& audioState;
+
+
 
 	static constexpr float minFreq = 50.0f;
 	static constexpr float maxFreq = 10000.0f;
 
 
+
 	float frequencyToY(float freq, float height)
 	{
-		auto norm = (std::log10(freq) - std::log10(minFreq)) / (std::log10(maxFreq) - std::log10(minFreq));
+		auto norm =
+			(std::log10(freq) - std::log10(minFreq))
+			/
+			(std::log10(maxFreq) - std::log10(minFreq));
+
+
 		return height * (1.0f - norm);
 	}
 
-	void drawFrequencyAxis(juce::Graphics& g, juce::Rectangle<int> area)
+
+
+	void drawFrequencyAxis(
+		juce::Graphics& g,
+		juce::Rectangle<int> area)
 	{
-		g.setColour(juce::Colours::grey.withAlpha(0.35f));
+
+		g.setColour(
+			juce::Colours::grey.withAlpha(0.35f));
+
 
 		std::array<float, 8> freqs =
 		{
-			50.0f,
-			100.0f,
-			250.0f,
-			500.0f,
-			1000.0f,
-			2000.0f,
-			5000.0f,
-			10000.0f
+			50,
+			100,
+			250,
+			500,
+			1000,
+			2000,
+			5000,
+			10000
 		};
+
+
 
 		for (auto freq : freqs)
 		{
 
-			auto y = frequencyToY(freq, (float)area.getHeight());
+			auto y =
+				frequencyToY(
+					freq,
+					(float)area.getHeight());
 
-			g.drawHorizontalLine((int)y, 0, area.getRight());
+
+			g.drawHorizontalLine(
+				(int)y,
+				0,
+				area.getRight());
+
+
 
 			juce::String label;
 
-			if (freq >= 1000)
-				label = juce::String(freq / 1000, 0) + "k";
-			else
-				label = juce::String((int)freq);
 
-			g.drawText(label, area.getRight() + 5, (int)y - 8, 45, 16, juce::Justification::centredLeft);
+			if (freq >= 1000)
+				label =
+				juce::String(freq / 1000, 0)
+				+ "k";
+			else
+				label =
+				juce::String((int)freq);
+
+
+
+			g.drawText(
+				label,
+				area.getRight() + 5,
+				(int)y - 8,
+				45,
+				16,
+				juce::Justification::centredLeft);
 		}
 	}
 
@@ -145,18 +217,38 @@ private:
 
 
 
+
+
 	void drawNextLineOfSpectrogram()
 	{
 
-		auto right = spectrogramImage.getWidth() - 1;
+		auto right =
+			spectrogramImage.getWidth() - 1;
 
-		auto height = spectrogramImage.getHeight();
 
-		spectrogramImage.moveImageSection(0, 0, 1, 0, right, height);
+		auto height =
+			spectrogramImage.getHeight();
 
-		window.multiplyWithWindowingTable(fftData.data(), fftSize);
 
-		forwardFFT.performFrequencyOnlyForwardTransform(fftData.data());
+
+		spectrogramImage.moveImageSection(
+			0, 0,
+			1, 0,
+			right,
+			height);
+
+
+
+		window.multiplyWithWindowingTable(
+			fftData.data(),
+			fftSize);
+
+
+
+		forwardFFT.performFrequencyOnlyForwardTransform(
+			fftData.data());
+
+
 
 		juce::Image::BitmapData bitmap
 		{
@@ -168,25 +260,107 @@ private:
 			juce::Image::BitmapData::writeOnly
 		};
 
-		float sampleRate = (float)audioState.currentSampleRate.load();
+
+
+		float sampleRate =
+			(float)audioState.currentSampleRate.load();
+
+
+
 
 		for (int y = 0; y < height; y++)
 		{
 
-			float norm = 1.0f - (float)y / (float)(height - 1);
 
-			float freq = minFreq * std::pow(maxFreq / minFreq, norm);
+			float norm =
+				1.0f -
+				(float)y /
+				(float)(height - 1);
 
-			int bin = juce::jlimit(0, fftSize / 2 - 1, (int)(freq * fftSize / sampleRate));
 
-			float db = juce::Decibels::gainToDecibels(fftData[bin] + 1e-9f);
 
-			float level = juce::jlimit(0.0f, 1.0f, (db + 90.0f) / 90.0f);
+			float freq =
+				minFreq *
+				std::pow(
+					maxFreq / minFreq,
+					norm);
 
-			// einfacher dunkler Audio-Look
-			auto colour = juce::Colour::fromHSV(0.65f - level * 0.65f, 0.9f, level, 1.0f);
 
-			bitmap.setPixelColour(0, y, colour);
+
+
+			float binFloat =
+				freq *
+				fftSize /
+				sampleRate;
+
+
+
+			int b0 =
+				juce::jlimit(
+					0,
+					fftSize / 2 - 1,
+					(int)binFloat);
+
+
+			int b1 =
+				juce::jmin(
+					b0 + 1,
+					fftSize / 2 - 1);
+
+
+
+			float frac =
+				binFloat -
+				(float)b0;
+
+
+
+			float magnitude =
+				fftData[b0] +
+				frac *
+				(fftData[b1] - fftData[b0]);
+
+
+
+			float db =
+				juce::Decibels::gainToDecibels(
+					magnitude + 1e-9f);
+
+
+
+
+			float level =
+				juce::jlimit(
+					0.0f,
+					1.0f,
+					(db + 75.0f)
+					/ 75.0f);
+
+
+
+			// Gamma
+			level =
+				std::pow(
+					level,
+					0.55f);
+
+
+
+
+			// RX / moderne Palette
+			auto colour =
+				juce::Colour::fromFloatRGBA(
+					level * 0.15f,
+					level * 0.85f,
+					level,
+					1.0f);
+
+
+
+			bitmap.setPixelColour(
+				0,
+				y,
+				colour);
 		}
 	}
 
