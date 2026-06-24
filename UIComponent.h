@@ -27,7 +27,7 @@ public:
 		sld_dbMin->setTextValueSuffix(" dB");
 		sld_dbMin->setValue(-100);
 		sld_dbMin->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
-		sld_dbMin->onValueChange = [this] {audioState.dbMin.store(static_cast<float>(sld_dbMin->getValue()));};
+		sld_dbMin->onValueChange = [this] {audioState.dbMin.store(static_cast<int>(sld_dbMin->getValue()));};
 		sld_dbMin->setBounds(0, labelHeight, elementWidth, elementHeight);
 		sld_dbMin->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
 

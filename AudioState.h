@@ -15,7 +15,7 @@
 
 struct AudioState
 {
-	std::atomic<double> currentSampleRate{};
+	std::atomic<double> currentSampleRate{ 48000 };
 
 
 	// scope comp
@@ -23,7 +23,7 @@ struct AudioState
 
 	std::atomic<float> displaySmooth{ 0.15f };
 
-	std::atomic<int> dbMin{ -100 };
+	std::atomic<float> dbMin{ -100 };		//sollte int sein...
 
 
 	// spec comp
