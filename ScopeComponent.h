@@ -48,41 +48,26 @@ public:
 
 	void rebuildFFTLookup()
 	{
-		float nyquist =
-			audioState.currentSampleRate.load() * 0.5f;
+		float nyquist =	audioState.currentSampleRate.load() * 0.5f;
 
 		constexpr float minFreq = 20.0f;
 
 		const auto numPoints = fftLookup.size();
 
-		if (numPoints == 0)
-			return;
+		if (numPoints == 0)	return;
 
 		for (size_t i = 0; i < numPoints; ++i)
 		{
-			float proportion =
-				static_cast<float>(i)
-				/ static_cast<float>(numPoints - 1);
+			float proportion = static_cast<float>(i) / static_cast<float>(numPoints - 1);
 
-			float freq =
-				minFreq *
-				std::pow(nyquist / minFreq, proportion);
+			float freq = minFreq * std::pow(nyquist / minFreq, proportion);
 
-			float bin =
-				freq * fftSize
-				/ audioState.currentSampleRate.load();
+			float bin = freq * fftSize / audioState.currentSampleRate.load();
 
 			int bin0 = static_cast<int>(bin);
+			int bin1 = juce::jmin(bin0 + 1, fftSize / 2);
 
-			int bin1 =
-				juce::jmin(bin0 + 1, fftSize / 2);
-
-			fftLookup[i] =
-			{
-				bin0,
-				bin1,
-				bin - static_cast<float>(bin0)
-			};
+			fftLookup[i] = { bin0,	bin1,	bin - static_cast<float>(bin0) };
 		}
 	}
 
@@ -109,16 +94,9 @@ private:
 	int fifoIndex = 0;
 	bool nextFFTBlockReady = false;
 
-
 	//struct FFTLookup { int index0;		int index1;		float frac; };
-	struct FFTLookup
-	{
-		int bin0;
-		int bin1;
-		float interp;
-	};
+	struct FFTLookup { int bin0;		int bin1;		float interp; };
 	std::vector<FFTLookup> fftLookup;
-
 
 	AudioState& audioState;
 
@@ -156,13 +134,11 @@ private:
 		//for (int i = 0; i < scopeSize; ++i)
 		for (size_t i = 0; i < scopeData.size(); ++i)
 		{
-
 			const auto& l = fftLookup[i];
 
 			float fftValue = fftData[l.bin0] + l.interp * (fftData[l.bin1] - fftData[l.bin0]);
 
 			fftSmoothed[i] = fftSmoothed[i] * audioState.fftSmooth.load() + fftValue * (1 - audioState.fftSmooth.load());
-
 
 			float level = juce::jmap(
 				juce::jlimit(mindB, maxdB, juce::Decibels::gainToDecibels(fftSmoothed[i] + 1e-6f) - juce::Decibels::gainToDecibels((float)fftSize)),
@@ -170,7 +146,6 @@ private:
 				maxdB,
 				0.0f,
 				1.0f);
-
 
 			scopeData[i] = scopeData[i] + audioState.displaySmooth.load() * (level - scopeData[i]);
 

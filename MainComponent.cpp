@@ -17,7 +17,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
 	shutdownAudio();
-	uiComponent, scopeComponent, specComponent = nullptr;
+	uiComponent, scopeComponent, specComponent, audioGeraet = nullptr;
 }
 
 //==============================================================================
