@@ -147,12 +147,12 @@ public:
 
 	~UIComponent()
 	{
-		sld_dbMin, lbl_dbMin = nullptr;
-		sld_FFTSmooth, lbl_FFTSmooth = nullptr;
-		sld_DisplaySmooth, lbl_DisplaySmooth = nullptr;
-		sld_dBVisible, lbl_dBVisible = nullptr;
-		sld_dBFloor, lbl_dBFloor = nullptr;
-		sld_lp, lbl_lp = nullptr;
+		sld_dbMin,			lbl_dbMin = nullptr;
+		sld_FFTSmooth,		lbl_FFTSmooth = nullptr;
+		sld_DisplaySmooth,	lbl_DisplaySmooth = nullptr;
+		sld_dBVisible,		lbl_dBVisible = nullptr;
+		sld_dBFloor,		lbl_dBFloor = nullptr;
+		sld_lp,				lbl_lp = nullptr;
 	}
 
 	void resize() {}

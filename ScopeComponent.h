@@ -48,7 +48,7 @@ public:
 
 	void rebuildFFTLookup()
 	{
-		float nyquist =	audioState.currentSampleRate.load() * 0.5f;
+		float nyquist = audioState.currentSampleRate.load() * 0.5f;
 
 		constexpr float minFreq = 20.0f;
 
@@ -167,10 +167,7 @@ private:
 	{
 
 		g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-		juce::PathStrokeType stroke(1.6f,
-			juce::PathStrokeType::curved,
-			juce::PathStrokeType::rounded);
-
+		juce::PathStrokeType stroke(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
 
 		g.fillAll(juce::Colours::black);
 

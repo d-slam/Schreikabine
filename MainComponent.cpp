@@ -10,7 +10,6 @@ MainComponent::MainComponent()
 	specComponent.reset(new SpecComponent(audioState));		addAndMakeVisible(specComponent.get());
 	audioGeraet.reset(new AudioGeraete());					addAndMakeVisible(audioGeraet.get());
 
-
 	setSize(1280, 1024);
 }
 
@@ -81,19 +80,17 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 
 void MainComponent::releaseResources()
 {
-
+	//filter.reset();
 }
 
 //==============================================================================
 void MainComponent::paint(juce::Graphics& g)
 {
 	g.fillAll(juce::Colours::black);
-
 }
 
 void MainComponent::resized()
 {
-
 	juce::Rectangle<int> boundsUi(0, 0, getWidth() / 2, getHeight() / 2);
 	juce::Rectangle<int> boundsScope(getWidth() / 2, 0, getWidth() / 2, getHeight() / 2);
 	juce::Rectangle<int> boundsSpec(0, getHeight() / 2, getWidth() / 2, getHeight() / 2);
