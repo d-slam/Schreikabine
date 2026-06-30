@@ -10,11 +10,11 @@
 
 #pragma once
 
-
 #include <atomic>
 
 struct AudioState
 {
+	
 	std::atomic<double> currentSampleRate{ 48000 };
 
 
@@ -29,6 +29,17 @@ struct AudioState
 	// spec comp
 
 
+	std::atomic<int> spec_dBVisible{ -65 };
+	std::atomic<int> spec_dBFloor{ -80 };
 
+
+	//filter
+
+	std::atomic<double> lp_freq{ 30 };
+
+
+
+
+		
 
 };

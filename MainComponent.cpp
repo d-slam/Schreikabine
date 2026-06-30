@@ -35,6 +35,8 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
 	//	scopeComponent->rebuildFFTLookup();
 	//}
 
+	currentSampleRate = sampleRate;
+
 	//filter init
 	juce::dsp::ProcessSpec spec;
 	spec.sampleRate = sampleRate;
@@ -43,11 +45,12 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
 
 	filter.prepare(spec);
 
-	*filter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, 30.0f); // 1 kHz Tiefpass
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
+	
+	*filter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(currentSampleRate, audioState.lp_freq.load()); // 1 kHz Tiefpass
 	//filtern
 	auto& buffer = *bufferToFill.buffer;
 
