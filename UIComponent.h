@@ -126,22 +126,23 @@ public:
 
 		///////////////////////////////////////////
 
-		sld_lp.reset(new juce::Slider("slider_lp"));
-		addAndMakeVisible(sld_lp.get());
-		sld_lp->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
-		sld_lp->setRange(30, 5000 , 1);
-		sld_lp->setValue(30);
-		sld_lp->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
-		sld_lp->onValueChange = [this] {audioState.lp_freq.store(static_cast<double>(sld_lp->getValue()));};
-		sld_lp->setBounds(elementWidth * 0, (labelHeight * 4) + (elementHeight * 4), elementWidth, elementHeight);
-		sld_lp->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+		sld_hp.reset(new juce::Slider("slider_hp"));
+		addAndMakeVisible(sld_hp.get());
+		sld_hp->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_hp->setRange(30, 5000 , 1);
+		sld_hp->setValue(30);
+		sld_hp->setSkewFactorFromMidPoint(100);
+		sld_hp->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_hp->onValueChange = [this] {audioState.hp_cutoff.store(static_cast<double>(sld_hp->getValue()));};
+		sld_hp->setBounds(elementWidth * 0, (labelHeight * 4) + (elementHeight * 4), elementWidth, elementHeight);
+		sld_hp->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
 
-		lbl_lp.reset(new juce::Label("label_lp"));
-		addAndMakeVisible(lbl_lp.get());
-		lbl_lp->setText("lp frequ", juce::NotificationType::dontSendNotification);
-		lbl_lp->setColour(juce::Label::outlineColourId, juce::Colours::lime);
-		lbl_lp->setJustificationType(juce::Justification::centred);
-		lbl_lp->attachToComponent(sld_lp.get(), false);
+		lbl_hp.reset(new juce::Label("label_hp"));
+		addAndMakeVisible(lbl_hp.get());
+		lbl_hp->setText("hp cutoff", juce::NotificationType::dontSendNotification);
+		lbl_hp->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_hp->setJustificationType(juce::Justification::centred);
+		lbl_hp->attachToComponent(sld_hp.get(), false);
 
 	}
 
@@ -152,7 +153,7 @@ public:
 		sld_DisplaySmooth,	lbl_DisplaySmooth = nullptr;
 		sld_dBVisible,		lbl_dBVisible = nullptr;
 		sld_dBFloor,		lbl_dBFloor = nullptr;
-		sld_lp,				lbl_lp = nullptr;
+		sld_hp,				lbl_hp = nullptr;
 	}
 
 	void resize() {}
@@ -174,8 +175,8 @@ public:
 	std::unique_ptr<juce::Slider> sld_dBFloor;
 	std::unique_ptr<juce::Label> lbl_dBFloor;
 
-	std::unique_ptr<juce::Slider> sld_lp;
-	std::unique_ptr<juce::Label> lbl_lp;
+	std::unique_ptr<juce::Slider> sld_hp;
+	std::unique_ptr<juce::Label> lbl_hp;
 
 
 private:

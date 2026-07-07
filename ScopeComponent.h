@@ -13,6 +13,8 @@
 #include <JuceHeader.h>
 #include "AudioState.h"
 
+// OpenGL support removed for minimal non-GL build
+
 class ScopeComponent : public juce::Component, private juce::Timer
 {
 public:
@@ -26,13 +28,25 @@ public:
 		rebuildFFTLookup();
 
 		setOpaque(true);
-		startTimerHz(30);
+		setBufferedToImage(true); // use component buffering
+
+		// higher update rate for smoother rendering
+		startTimerHz(120);
+
+		// create offscreen image for double-buffered drawing
+		if (getWidth() > 0 && getHeight() > 0)
+			spectrumImage = juce::Image(juce::Image::ARGB, getWidth(), getHeight(), true);
+
+		// enable OpenGL acceleration for this component (if module available)
+		// OpenGL disabled in this build - use CPU painting only
 	}
+
+	~ScopeComponent() {}
 
 	// wichter optimisierungscheis!!! mit steigender fftOrder brauchen wir lange bis fifo voll ist, deswegen öffters rendern mit /8 für 14te zB
 	void pushNextSampleIntoFifo(float sample) noexcept
 	{
-		if (fifoIndex == fftSize / 8)
+		if (fifoIndex == fftSize / 4)
 		{
 			if (!nextFFTBlockReady)
 			{
@@ -73,7 +87,7 @@ public:
 
 private:
 
-	static constexpr int fftOrder = 14;		//def 11
+	static constexpr int fftOrder = 13;		//def 11
 	static constexpr int fftSize = 1 << fftOrder;
 	//static constexpr int scopeSize = 512;	//def 512	Obsolete da mir die size aus der component getWidth() ableiten
 
@@ -100,6 +114,16 @@ private:
 
 	AudioState& audioState;
 
+	// Offscreen image and path for double-buffered drawing
+	juce::Image spectrumImage;
+	juce::Path spectrumPath;
+	// protects concurrent access to spectrumImage between GUI thread and GL render thread
+	juce::CriticalSection spectrumImageLock;
+
+
+	// OpenGL removed - using CPU rendering only
+	// OpenGL support disabled - CPU-only rendering
+
 
 	////////////////////////////////////////////////////////	
 
@@ -115,41 +139,84 @@ private:
 	}
 
 
+
 	void drawNextFrameOfSpectrum()
 	{
 		window.multiplyWithWindowingTable(fftData, fftSize);
 
-		//auto start = juce::Time::getMillisecondCounterHiRes();
 		forwardFFT.performFrequencyOnlyForwardTransform(fftData);
-		//auto end = juce::Time::getMillisecondCounterHiRes();
-		//DBG("FFT: " << (end - start) << " ms");
-
 
 		auto mindB = (float)audioState.dbMin.load();
 		auto maxdB = 0.0f;
 
-		constexpr float minFreq = 20.0f;
-		float nyquist = (float)audioState.currentSampleRate.load() * 0.5f;			//current sample rate
-
-		//for (int i = 0; i < scopeSize; ++i)
+		// compute magnitudes and apply smoothing
 		for (size_t i = 0; i < scopeData.size(); ++i)
 		{
 			const auto& l = fftLookup[i];
 
 			float fftValue = fftData[l.bin0] + l.interp * (fftData[l.bin1] - fftData[l.bin0]);
 
-			fftSmoothed[i] = fftSmoothed[i] * audioState.fftSmooth.load() + fftValue * (1 - audioState.fftSmooth.load());
+			fftSmoothed[i] = fftSmoothed[i] * audioState.fftSmooth.load() + fftValue * (1.0f - audioState.fftSmooth.load());
 
-			float level = juce::jmap(
-				juce::jlimit(mindB, maxdB, juce::Decibels::gainToDecibels(fftSmoothed[i] + 1e-6f) - juce::Decibels::gainToDecibels((float)fftSize)),
-				mindB,
-				maxdB,
-				0.0f,
-				1.0f);
+			float db = juce::Decibels::gainToDecibels(fftSmoothed[i] + 1e-6f) - juce::Decibels::gainToDecibels((float)fftSize);
+
+			float level = juce::jmap(juce::jlimit(mindB, maxdB, db), mindB, maxdB, 0.0f, 1.0f);
 
 			scopeData[i] = scopeData[i] + audioState.displaySmooth.load() * (level - scopeData[i]);
-
 		}
+
+		// draw into offscreen image to reduce paint() workload
+		{
+			juce::ScopedLock lock(spectrumImageLock);
+			if (spectrumImage.isNull() || spectrumImage.getWidth() != getWidth() || spectrumImage.getHeight() != getHeight())
+			{
+				if (getWidth() > 0 && getHeight() > 0)
+					spectrumImage = juce::Image(juce::Image::ARGB, getWidth(), getHeight(), true);
+			}
+
+			if (!spectrumImage.isNull())
+			{
+				juce::Graphics gi(spectrumImage);
+				gi.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
+				gi.fillAll(juce::Colours::black);
+
+				spectrumPath.clear();
+				spectrumPath.startNewSubPath(0.0f, (float)getHeight());
+
+				for (size_t i = 1; i < scopeData.size(); ++i)
+				{
+					auto x = juce::jmap<float>(
+						static_cast<float>(i),
+						0.0f,
+						static_cast<float>(scopeData.size() - 1),
+						0.0f,
+						(float)getWidth());
+
+					auto y = juce::jmap<float>(
+						scopeData[i],
+						0.0f,
+						1.0f,
+						(float)getHeight(),
+						0.0f);
+
+					spectrumPath.lineTo(x, y);
+				}
+
+				gi.setColour(juce::Colours::lime.withAlpha(0.2f));
+				gi.fillPath(spectrumPath);
+
+				// subtle bloom/glow: smaller, lower-alpha layered strokes for a gentler look
+				gi.setColour(juce::Colours::lime.withAlpha(0.125f));
+				gi.strokePath(spectrumPath, juce::PathStrokeType(12.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+				gi.setColour(juce::Colours::lime.withAlpha(0.112f));
+				gi.strokePath(spectrumPath, juce::PathStrokeType(28.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+				// main stroke
+				gi.setColour(juce::Colours::lime.withAlpha(0.95f));
+				gi.strokePath(spectrumPath, juce::PathStrokeType(1.5f));
+			}
+		}
+
 	}
 
 	void timerCallback() override
@@ -165,46 +232,50 @@ private:
 
 	void paint(juce::Graphics& g) override
 	{
-
 		g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-		juce::PathStrokeType stroke(1.6f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded);
-
-		g.fillAll(juce::Colours::black);
-
-		g.setColour(juce::Colours::lime);
 
 		auto bounds = getLocalBounds().toFloat();
 
-		juce::Path spectrumPath;
-
-		spectrumPath.startNewSubPath(0.0f, bounds.getBottom());
-
-		for (size_t i = 1; i < scopeData.size(); ++i)
+		// If we have an offscreen rendered image, blit it — much cheaper than re-drawing the path every frame
+		if (!spectrumImage.isNull())
 		{
-			auto x = juce::jmap<float>(
-				static_cast<float>(i),
-				0.0f,
-				static_cast<float>(scopeData.size() - 1),
-				0.0f,
-				bounds.getWidth());
-
-			auto y = juce::jmap<float>(
-				scopeData[i],
-				0.0f,
-				1.0f,
-				bounds.getBottom(),
-				bounds.getY());
-
-			spectrumPath.lineTo(x, y);
+			g.drawImageAt(spectrumImage, 0, 0);
 		}
+		else
+		{
+			g.fillAll(juce::Colours::black);
+			g.setColour(juce::Colours::lime);
 
+			auto bounds = getLocalBounds().toFloat();
 
-		// fabfilter style pfad
-		g.setColour(juce::Colours::lime.withAlpha(0.2f));
-		g.fillPath(spectrumPath);
+			juce::Path tmpPath;
+			tmpPath.startNewSubPath(0.0f, bounds.getBottom());
 
-		g.setColour(juce::Colours::lime.withAlpha(0.9f));
-		g.strokePath(spectrumPath, juce::PathStrokeType(1.5f));
+			for (size_t i = 1; i < scopeData.size(); ++i)
+			{
+				auto x = juce::jmap<float>(
+					static_cast<float>(i),
+					0.0f,
+					static_cast<float>(scopeData.size() - 1),
+					0.0f,
+					bounds.getWidth());
+
+				auto y = juce::jmap<float>(
+					scopeData[i],
+					0.0f,
+					1.0f,
+					bounds.getBottom(),
+					bounds.getY());
+
+				tmpPath.lineTo(x, y);
+			}
+
+			g.setColour(juce::Colours::lime.withAlpha(0.2f));
+			g.fillPath(tmpPath);
+
+			g.setColour(juce::Colours::lime.withAlpha(0.9f));
+			g.strokePath(tmpPath, juce::PathStrokeType(1.5f));
+		}
 
 
 		//soft glow
@@ -232,7 +303,7 @@ private:
 			auto x = frequencyToX(freq, bounds.getWidth());
 
 			// Tick
-			g.drawVerticalLine((int)x, bounds.getBottom() - 10.0f, bounds.getBottom());
+			g.drawVerticalLine((int)x, (int)bounds.getBottom() - 10, (int)bounds.getBottom());
 
 			// Beschriftung
 			juce::String label;

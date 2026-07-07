@@ -5,10 +5,9 @@ MainComponent::MainComponent()
 {
 	setAudioChannels(2, 0);  // we want a couple of input channels but no outputs
 
-	uiComponent.reset(new UIComponent(audioState));			addAndMakeVisible(uiComponent.get());
 	scopeComponent.reset(new ScopeComponent(audioState));	addAndMakeVisible(scopeComponent.get());
-	specComponent.reset(new SpecComponent(audioState));		addAndMakeVisible(specComponent.get());
-	audioGeraet.reset(new AudioGeraete());					addAndMakeVisible(audioGeraet.get());
+	uiComponent.reset(new UIComponent(audioState));			addAndMakeVisible(uiComponent.get());
+	audioGeraet.reset(new AudioGeraete());					/*addAndMakeVisible(audioGeraet.get());*/
 
 	setSize(1280, 1024);
 }
@@ -16,7 +15,7 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
 	shutdownAudio();
-	uiComponent, scopeComponent, specComponent, audioGeraet = nullptr;
+	uiComponent, scopeComponent, audioGeraet = nullptr;
 }
 
 //==============================================================================
@@ -44,12 +43,26 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
 
 	filter.prepare(spec);
 
+	// initialize 4th-order high-pass coefficients (two cascaded 2nd-order stages)
+	float cutoff = (float)audioState.hp_cutoff.load();
+	lastLpFreq = cutoff;
+	auto coeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(sampleRate, cutoff);
+	*filter.get<0>().state = *coeffs;
+	*filter.get<1>().state = *coeffs;
+
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
-	
-	*filter.state = *juce::dsp::IIR::Coefficients<float>::makeHighPass(currentSampleRate, audioState.lp_freq.load()); // 1 kHz Tiefpass
+	// update coefficients if cutoff changed
+	float cutoff = (float)audioState.hp_cutoff.load();
+	if (std::abs(cutoff - lastLpFreq) > 0.001f)
+	{
+		auto coeffs = juce::dsp::IIR::Coefficients<float>::makeHighPass(currentSampleRate, cutoff);
+		*filter.get<0>().state = *coeffs;
+		*filter.get<1>().state = *coeffs;
+		lastLpFreq = cutoff;
+	}
 	//filtern
 	auto& buffer = *bufferToFill.buffer;
 
@@ -71,7 +84,6 @@ void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& buffer
 		for (auto i = 0; i < bufferToFill.numSamples; ++i)
 		{
 			scopeComponent->pushNextSampleIntoFifo(channelData[i]);
-			specComponent->pushNextSampleIntoFifo(channelData[i]);
 		}
 
 	}
@@ -92,12 +104,10 @@ void MainComponent::paint(juce::Graphics& g)
 void MainComponent::resized()
 {
 	juce::Rectangle<int> boundsUi(0, 0, getWidth() / 2, getHeight() / 2);
-	juce::Rectangle<int> boundsScope(getWidth() / 2, 0, getWidth() / 2, getHeight() / 2);
-	juce::Rectangle<int> boundsSpec(0, getHeight() / 2, getWidth() / 2, getHeight() / 2);
+	juce::Rectangle<int> boundsScope(0, 0, getWidth() / 1, getHeight() / 1);
 	juce::Rectangle<int> boundsGeraet(getWidth() / 2, getHeight() / 2, getWidth() / 2, getHeight() / 2);
 
-	uiComponent->setBounds(boundsUi);
 	scopeComponent->setBounds(boundsScope);
-	specComponent->setBounds(boundsSpec);
+	uiComponent->setBounds(boundsUi);
 	audioGeraet->setBounds(boundsGeraet);
 }

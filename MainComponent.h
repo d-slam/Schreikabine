@@ -3,7 +3,6 @@
 #include <JuceHeader.h>
 #include "AudioState.h"
 #include "ScopeComponent.h"
-#include "SpecComponent.h"
 #include "UIComponent.h"
 #include "AudioGeraete.h"
 
@@ -38,14 +37,17 @@ private:
 
 	std::unique_ptr<UIComponent> uiComponent;
 	std::unique_ptr<ScopeComponent> scopeComponent;
-	std::unique_ptr<SpecComponent> specComponent;
 	std::unique_ptr<AudioGeraete> audioGeraet;
 
 
-	juce::dsp::ProcessorDuplicator<
-		juce::dsp::IIR::Filter<float>,
-		juce::dsp::IIR::Coefficients<float>
-	> filter;
+	using IIRStage = juce::dsp::IIR::Filter<float>;
+	using IIRCoeffs = juce::dsp::IIR::Coefficients<float>;
+	using StageDuplicator = juce::dsp::ProcessorDuplicator<IIRStage, IIRCoeffs>;
+
+	juce::dsp::ProcessorChain<StageDuplicator, StageDuplicator> filter;
+
+	// store last cutoff to update filter coefficients when parameter changes
+	float lastLpFreq { 0.0f }; // no-op placeholder to keep edit history consistent
 
 	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)
 };
