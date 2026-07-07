@@ -120,6 +120,19 @@ private:
 	// protects concurrent access to spectrumImage between GUI thread and GL render thread
 	juce::CriticalSection spectrumImageLock;
 
+	// Particles for falling-path effect
+	struct Particle { float x; float y; float vy; float alpha; };
+	std::vector<Particle> particles;
+	juce::Random particleRandom;
+
+	// particle parameters 
+	float particleGravity = 220.0f;       // px / s^2
+	float particleInitVy = 20.0f;         // initial downward velocity px/s
+	float particleFadeRate = 0.5f;        // alpha per second
+	float particleRadius = 1.8f;          // px
+	size_t particleSpawnStep = 10;         // spawn every Nth sample point
+	size_t particleMaxCount = 10000;
+
 
 	// OpenGL removed - using CPU rendering only
 	// OpenGL support disabled - CPU-only rendering
@@ -200,6 +213,21 @@ private:
 						0.0f);
 
 					spectrumPath.lineTo(x, y);
+
+					// spawn a particle from the path every Nth point
+					if ((i % particleSpawnStep) == 0)
+					{
+						if (particles.size() < particleMaxCount)
+						{
+							float jitter = (particleRandom.nextFloat() - 0.5f) * 2.0f; // -1..1
+							Particle p;
+							p.x = x + jitter * 1.5f;
+							p.y = y;
+							p.vy = particleInitVy * (0.8f + particleRandom.nextFloat() * 0.4f);
+							p.alpha = 1.0f;
+							particles.push_back(p);
+						}
+					}
 				}
 
 				gi.setColour(juce::Colours::lime.withAlpha(0.2f));
@@ -210,6 +238,15 @@ private:
 				gi.strokePath(spectrumPath, juce::PathStrokeType(12.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 				gi.setColour(juce::Colours::lime.withAlpha(0.112f));
 				gi.strokePath(spectrumPath, juce::PathStrokeType(28.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+				// draw particles behind the main stroke
+				for (const auto &p : particles)
+				{
+					float a = juce::jlimit(0.0f, 1.0f, p.alpha);
+					gi.setColour(juce::Colours::lime.withAlpha(0.85f * a));
+					float r = particleRadius;
+					gi.fillEllipse(p.x - r, p.y - r, r * 2.0f, r * 2.0f);
+				}
 
 				// main stroke
 				gi.setColour(juce::Colours::lime.withAlpha(0.95f));
@@ -223,12 +260,42 @@ private:
 	{
 		if (nextFFTBlockReady)
 		{
+			// update particle physics (approx dt based on timer freq)
+			float dt = 1.0f / 120.0f; // timer runs at 120Hz
+			updateParticles(dt);
+
 			drawNextFrameOfSpectrum();
 			nextFFTBlockReady = false;
 			repaint();
 		}
 	}
 
+
+	void updateParticles(float dt)
+	{
+		if (particles.empty()) return;
+
+		// simple Euler integration + fade
+		for (size_t i = 0; i < particles.size(); )
+		{
+			auto &p = particles[i];
+			p.vy += particleGravity * dt;
+			p.y += p.vy * dt;
+			p.alpha -= particleFadeRate * dt;
+
+			// remove if invisible or out of bounds
+			if (p.alpha <= 0.0f || p.y > (float)getHeight() + 10.0f)
+			{
+				// swap-remove for efficiency
+				particles[i] = particles.back();
+				particles.pop_back();
+			}
+			else
+			{
+				++i;
+			}
+		}
+	}
 
 	void paint(juce::Graphics& g) override
 	{

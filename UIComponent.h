@@ -130,7 +130,7 @@ public:
 		addAndMakeVisible(sld_hp.get());
 		sld_hp->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
 		sld_hp->setRange(30, 5000 , 1);
-		sld_hp->setValue(30);
+		sld_hp->setValue(audioState.hp_cutoff.load());
 		sld_hp->setSkewFactorFromMidPoint(100);
 		sld_hp->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
 		sld_hp->onValueChange = [this] {audioState.hp_cutoff.store(static_cast<double>(sld_hp->getValue()));};

@@ -36,7 +36,7 @@ struct AudioState
 	//filter
 
 	// filter cutoff (high-pass)
-	std::atomic<double> hp_cutoff{ 30 };
+	std::atomic<double> hp_cutoff{ 100 };
 
 
 
