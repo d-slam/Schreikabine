@@ -144,6 +144,111 @@ public:
 		lbl_hp->setJustificationType(juce::Justification::centred);
 		lbl_hp->attachToComponent(sld_hp.get(), false);
 
+		///////////////////////////////////////////
+		// particle parameters (ScopeComponent)
+
+		sld_particleGravity.reset(new juce::Slider("slider_particleGravity"));
+		addAndMakeVisible(sld_particleGravity.get());
+		sld_particleGravity->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_particleGravity->setRange(0.0, 1000.0, 1.0);
+		sld_particleGravity->setValue((double)audioState.particleGravity.load());
+		sld_particleGravity->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_particleGravity->onValueChange = [this] { audioState.particleGravity.store(static_cast<float>(sld_particleGravity->getValue())); };
+		sld_particleGravity->setBounds(elementWidth * 3, labelHeight, elementWidth, elementHeight);
+		sld_particleGravity->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_particleGravity.reset(new juce::Label("label_particleGravity"));
+		addAndMakeVisible(lbl_particleGravity.get());
+		lbl_particleGravity->setText("particle g", juce::NotificationType::dontSendNotification);
+		lbl_particleGravity->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_particleGravity->setJustificationType(juce::Justification::centred);
+		lbl_particleGravity->attachToComponent(sld_particleGravity.get(), false);
+
+		sld_particleInitVy.reset(new juce::Slider("slider_particleInitVy"));
+		addAndMakeVisible(sld_particleInitVy.get());
+		sld_particleInitVy->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_particleInitVy->setRange(0.0, 400.0, 1.0);
+		sld_particleInitVy->setValue((double)audioState.particleInitVy.load());
+		sld_particleInitVy->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_particleInitVy->onValueChange = [this] { audioState.particleInitVy.store(static_cast<float>(sld_particleInitVy->getValue())); };
+		sld_particleInitVy->setBounds(elementWidth * 4, labelHeight, elementWidth, elementHeight);
+		sld_particleInitVy->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_particleInitVy.reset(new juce::Label("label_particleInitVy"));
+		addAndMakeVisible(lbl_particleInitVy.get());
+		lbl_particleInitVy->setText("init vy", juce::NotificationType::dontSendNotification);
+		lbl_particleInitVy->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_particleInitVy->setJustificationType(juce::Justification::centred);
+		lbl_particleInitVy->attachToComponent(sld_particleInitVy.get(), false);
+
+		sld_particleFadeRate.reset(new juce::Slider("slider_particleFadeRate"));
+		addAndMakeVisible(sld_particleFadeRate.get());
+		sld_particleFadeRate->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_particleFadeRate->setRange(0.0, 5.0, 0.01);
+		sld_particleFadeRate->setValue((double)audioState.particleFadeRate.load());
+		sld_particleFadeRate->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_particleFadeRate->onValueChange = [this] { audioState.particleFadeRate.store(static_cast<float>(sld_particleFadeRate->getValue())); };
+		sld_particleFadeRate->setBounds(elementWidth * 3, (labelHeight * 2) + (elementHeight * 2), elementWidth, elementHeight);
+		sld_particleFadeRate->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_particleFadeRate.reset(new juce::Label("label_particleFadeRate"));
+		addAndMakeVisible(lbl_particleFadeRate.get());
+		lbl_particleFadeRate->setText("fade/s", juce::NotificationType::dontSendNotification);
+		lbl_particleFadeRate->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_particleFadeRate->setJustificationType(juce::Justification::centred);
+		lbl_particleFadeRate->attachToComponent(sld_particleFadeRate.get(), false);
+
+		sld_particleRadius.reset(new juce::Slider("slider_particleRadius"));
+		addAndMakeVisible(sld_particleRadius.get());
+		sld_particleRadius->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_particleRadius->setRange(0.1, 8.0, 0.1);
+		sld_particleRadius->setValue((double)audioState.particleRadius.load());
+		sld_particleRadius->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_particleRadius->onValueChange = [this] { audioState.particleRadius.store(static_cast<float>(sld_particleRadius->getValue())); };
+		sld_particleRadius->setBounds(elementWidth * 4, (labelHeight * 2) + (elementHeight * 2), elementWidth, elementHeight);
+		sld_particleRadius->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_particleRadius.reset(new juce::Label("label_particleRadius"));
+		addAndMakeVisible(lbl_particleRadius.get());
+		lbl_particleRadius->setText("radius", juce::NotificationType::dontSendNotification);
+		lbl_particleRadius->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_particleRadius->setJustificationType(juce::Justification::centred);
+		lbl_particleRadius->attachToComponent(sld_particleRadius.get(), false);
+
+		sld_particleSpawnStep.reset(new juce::Slider("slider_particleSpawnStep"));
+		addAndMakeVisible(sld_particleSpawnStep.get());
+		sld_particleSpawnStep->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_particleSpawnStep->setRange(1, 64, 1);
+		sld_particleSpawnStep->setValue((int)audioState.particleSpawnStep.load());
+		sld_particleSpawnStep->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_particleSpawnStep->onValueChange = [this] { audioState.particleSpawnStep.store(static_cast<int>(sld_particleSpawnStep->getValue())); };
+		sld_particleSpawnStep->setBounds(elementWidth * 5, labelHeight, elementWidth, elementHeight);
+		sld_particleSpawnStep->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_particleSpawnStep.reset(new juce::Label("label_particleSpawnStep"));
+		addAndMakeVisible(lbl_particleSpawnStep.get());
+		lbl_particleSpawnStep->setText("spawn step", juce::NotificationType::dontSendNotification);
+		lbl_particleSpawnStep->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_particleSpawnStep->setJustificationType(juce::Justification::centred);
+		lbl_particleSpawnStep->attachToComponent(sld_particleSpawnStep.get(), false);
+
+		sld_particleMaxCount.reset(new juce::Slider("slider_particleMaxCount"));
+		addAndMakeVisible(sld_particleMaxCount.get());
+		sld_particleMaxCount->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_particleMaxCount->setRange(100, 20000, 100);
+		sld_particleMaxCount->setValue((int)audioState.particleMaxCount.load());
+		sld_particleMaxCount->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_particleMaxCount->onValueChange = [this] { audioState.particleMaxCount.store(static_cast<int>(sld_particleMaxCount->getValue())); };
+		sld_particleMaxCount->setBounds(elementWidth * 5, (labelHeight * 2) + (elementHeight * 2), elementWidth, elementHeight);
+		sld_particleMaxCount->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_particleMaxCount.reset(new juce::Label("label_particleMaxCount"));
+		addAndMakeVisible(lbl_particleMaxCount.get());
+		lbl_particleMaxCount->setText("max cnt", juce::NotificationType::dontSendNotification);
+		lbl_particleMaxCount->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_particleMaxCount->setJustificationType(juce::Justification::centred);
+		lbl_particleMaxCount->attachToComponent(sld_particleMaxCount.get(), false);
+
 	}
 
 	~UIComponent()
@@ -154,6 +259,13 @@ public:
 		sld_dBVisible,		lbl_dBVisible = nullptr;
 		sld_dBFloor,		lbl_dBFloor = nullptr;
 		sld_hp,				lbl_hp = nullptr;
+
+		sld_particleGravity, lbl_particleGravity = nullptr;
+		sld_particleInitVy, lbl_particleInitVy = nullptr;
+		sld_particleFadeRate, lbl_particleFadeRate = nullptr;
+		sld_particleRadius, lbl_particleRadius = nullptr;
+		sld_particleSpawnStep, lbl_particleSpawnStep = nullptr;
+		sld_particleMaxCount, lbl_particleMaxCount = nullptr;
 	}
 
 	void resize() {}
@@ -177,6 +289,25 @@ public:
 
 	std::unique_ptr<juce::Slider> sld_hp;
 	std::unique_ptr<juce::Label> lbl_hp;
+
+	// particle controls
+	std::unique_ptr<juce::Slider> sld_particleGravity;
+	std::unique_ptr<juce::Label> lbl_particleGravity;
+
+	std::unique_ptr<juce::Slider> sld_particleInitVy;
+	std::unique_ptr<juce::Label> lbl_particleInitVy;
+
+	std::unique_ptr<juce::Slider> sld_particleFadeRate;
+	std::unique_ptr<juce::Label> lbl_particleFadeRate;
+
+	std::unique_ptr<juce::Slider> sld_particleRadius;
+	std::unique_ptr<juce::Label> lbl_particleRadius;
+
+	std::unique_ptr<juce::Slider> sld_particleSpawnStep;
+	std::unique_ptr<juce::Label> lbl_particleSpawnStep;
+
+	std::unique_ptr<juce::Slider> sld_particleMaxCount;
+	std::unique_ptr<juce::Label> lbl_particleMaxCount;
 
 
 private:
