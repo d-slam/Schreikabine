@@ -13,7 +13,6 @@
 #include <JuceHeader.h>
 #include "AudioState.h"
 
-// OpenGL support removed for minimal non-GL build
 
 class ScopeComponent : public juce::Component, private juce::Timer
 {
@@ -37,8 +36,7 @@ public:
 		if (getWidth() > 0 && getHeight() > 0)
 			spectrumImage = juce::Image(juce::Image::ARGB, getWidth(), getHeight(), true);
 
-		// enable OpenGL acceleration for this component (if module available)
-		// OpenGL disabled in this build - use CPU painting only
+
 
 		// initialize cached particle parameters from AudioState
 		particleGravityLocal = audioState.particleGravity.load();
@@ -47,14 +45,18 @@ public:
 		particleRadiusLocal = audioState.particleRadius.load();
 		particleSpawnStepLocal = std::max(1, audioState.particleSpawnStep.load());
 		particleMaxCountLocal = std::max(1, audioState.particleMaxCount.load());
+
+
 	}
 
-	~ScopeComponent() {}
+	~ScopeComponent()
+	{
+	}
 
 	// wichter optimisierungscheis!!! mit steigender fftOrder brauchen wir lange bis fifo voll ist, deswegen öffters rendern mit /8 für 14te zB
 	void pushNextSampleIntoFifo(float sample) noexcept
 	{
-		if (fifoIndex == fftSize / 4)
+		if (fifoIndex == fftSize / 16)
 		{
 			if (!nextFFTBlockReady)
 			{
@@ -95,7 +97,7 @@ public:
 
 private:
 
-	static constexpr int fftOrder = 13;		//def 11
+	static constexpr int fftOrder = 14;		//def 11
 	static constexpr int fftSize = 1 << fftOrder;
 	//static constexpr int scopeSize = 512;	//def 512	Obsolete da mir die size aus der component getWidth() ableiten
 
@@ -122,10 +124,11 @@ private:
 
 	AudioState& audioState;
 
+public:
 	// Offscreen image and path for double-buffered drawing
 	juce::Image spectrumImage;
 	juce::Path spectrumPath;
-	// protects concurrent access to spectrumImage between GUI thread and GL render thread
+	// protects concurrent access to spectrumImage
 	juce::CriticalSection spectrumImageLock;
 
 	// Particles for falling-path effect
@@ -144,10 +147,11 @@ private:
 	// live-sync control for particle params
 	int particleSyncCounter = 0;
 	int particleSyncInterval = 10; // frames (timer ticks) between syncs
+	float autoNormPeakSmoothed = 1.0f;
 
 
-	// OpenGL removed - using CPU rendering only
-	// OpenGL support disabled - CPU-only rendering
+
+private:
 
 
 	////////////////////////////////////////////////////////	
@@ -170,9 +174,11 @@ private:
 		window.multiplyWithWindowingTable(fftData, fftSize);
 
 		forwardFFT.performFrequencyOnlyForwardTransform(fftData);
-
-		auto mindB = (float)audioState.dbMin.load();
-		auto maxdB = 0.0f;
+		float normScale = juce::jmax(0.01f, audioState.scopeNormFactor.load());
+		float normFactor = (float)fftSize * normScale;
+		const bool autoNormalize = audioState.scopeAutoNormalize.load();
+		float framePeak = 1.0e-6f;
+		float frameMagnitude = 0.0f;
 
 		// compute magnitudes and apply smoothing
 		for (size_t i = 0; i < scopeData.size(); ++i)
@@ -183,9 +189,24 @@ private:
 
 			fftSmoothed[i] = fftSmoothed[i] * audioState.fftSmooth.load() + fftValue * (1.0f - audioState.fftSmooth.load());
 
-			float db = juce::Decibels::gainToDecibels(fftSmoothed[i] + 1e-6f) - juce::Decibels::gainToDecibels((float)fftSize);
+			if (autoNormalize)
+				framePeak = juce::jmax(framePeak, fftSmoothed[i]);
+		}
 
-			float level = juce::jmap(juce::jlimit(mindB, maxdB, db), mindB, maxdB, 0.0f, 1.0f);
+		if (autoNormalize)
+		{
+			constexpr float attack = 0.25f;
+			constexpr float release = 0.05f;
+			autoNormPeakSmoothed += (framePeak > autoNormPeakSmoothed ? attack : release) * (framePeak - autoNormPeakSmoothed);
+			normFactor = juce::jmax(1.0e-4f, autoNormPeakSmoothed * normScale);
+		}
+
+		for (size_t i = 0; i < scopeData.size(); ++i)
+		{
+			float level = fftSmoothed[i] / normFactor;
+			level = juce::jlimit(0.0f, 1.0f, level);
+
+			frameMagnitude = juce::jmax(frameMagnitude, level);
 
 			scopeData[i] = scopeData[i] + audioState.displaySmooth.load() * (level - scopeData[i]);
 		}
@@ -224,6 +245,9 @@ private:
 						(float)getHeight(),
 						0.0f);
 
+					// ensure the rightmost (last) point of the path stays on the x-axis (bottom)
+					if (i == scopeData.size() - 1)
+						y = (float)getHeight();
 					spectrumPath.lineTo(x, y);
 
 					// spawn a particle from the path every Nth point (read spawn rate/max from AudioState)
@@ -232,210 +256,225 @@ private:
 						if (spawnStep <= 0) spawnStep = 1;
 						size_t maxCount = static_cast<size_t>(audioState.particleMaxCount.load());
 
-					if ((i % particleSpawnStepLocal) == 0)
-					{
-						if (particles.size() < (size_t)particleMaxCountLocal)
+						if ((i % particleSpawnStepLocal) == 0)
 						{
-							float jitter = (particleRandom.nextFloat() - 0.5f) * 2.0f; // -1..1
-							Particle p;
-							p.x = x + jitter * 1.5f;
-							p.y = y;
-							p.vy = particleInitVyLocal * (0.8f + particleRandom.nextFloat() * 0.4f);
-							p.alpha = 1.0f;
-							particles.push_back(p);
+							if (particles.size() < (size_t)particleMaxCountLocal)
+							{
+								float jitter = (particleRandom.nextFloat() - 0.5f) * 2.0f; // -1..1
+								Particle p;
+								p.x = x + jitter * 1.5f;
+								p.y = y;
+								p.vy = particleInitVyLocal * (0.8f + particleRandom.nextFloat() * 0.4f);
+								p.alpha = 1.0f;
+								particles.push_back(p);
+							}
 						}
-					}
 					}
 				}
 
 				gi.setColour(juce::Colours::lime.withAlpha(0.2f));
 				gi.fillPath(spectrumPath);
 
-				// subtle bloom/glow: smaller, lower-alpha layered strokes for a gentler look
-				gi.setColour(juce::Colours::lime.withAlpha(0.125f));
-				gi.strokePath(spectrumPath, juce::PathStrokeType(12.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
-				gi.setColour(juce::Colours::lime.withAlpha(0.112f));
-				gi.strokePath(spectrumPath, juce::PathStrokeType(28.0f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+				// bloom/glow scaled by UI gain
+				// use dedicated glow control if provided
+				float glow = audioState.glow.load();
+				float glowAmount = juce::jlimit(0.0f, 1.0f, audioState.glowAmount.load());
+				float glowScale = juce::jmap(glowAmount, 1.0f, juce::jlimit(0.0f, 1.0f, frameMagnitude));
+				glow *= glowScale;
+
+				// subtle layered strokes for glow; clamp alpha to 1.0
+				float a1 = juce::jmin(1.0f, 0.125f * glow);
+				float a2 = juce::jmin(1.0f, 0.112f * glow);
+				gi.setColour(juce::Colours::lime.withAlpha(a1));
+				gi.strokePath(spectrumPath, juce::PathStrokeType(12.0f * glow, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+				gi.setColour(juce::Colours::lime.withAlpha(a2));
+				gi.strokePath(spectrumPath, juce::PathStrokeType(28.0f * glow, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
 				// draw particles behind the main stroke
-				// cache radius for render loop
+				// cache radius for render loop - glow does not affect particle size/alpha
 				float radiusLocal = audioState.particleRadius.load();
-				for (const auto &p : particles)
+				for (const auto& p : particles)
 				{
 					float a = juce::jlimit(0.0f, 1.0f, p.alpha);
-					gi.setColour(juce::Colours::lime.withAlpha(0.85f * a));
+					gi.setColour(juce::Colours::lime.withAlpha(a));
 					float r = radiusLocal;
 					gi.fillEllipse(p.x - r, p.y - r, r * 2.0f, r * 2.0f);
 				}
 
-				// main stroke
-				gi.setColour(juce::Colours::lime.withAlpha(0.95f));
-				gi.strokePath(spectrumPath, juce::PathStrokeType(1.5f));
-			}
-		}
+				// main stroke (stronger when gain is high)
+				float mainAlpha = juce::jmin(1.0f, 0.95f * glow);
+				gi.setColour(juce::Colours::lime.withAlpha(mainAlpha));
+				gi.strokePath(spectrumPath, juce::PathStrokeType(1.5f * juce::jmax(1.0f, glow * 0.5f)));
 
-	}
 
-	void timerCallback() override
-	{
-		if (nextFFTBlockReady)
-		{
-			// update particle physics (approx dt based on timer freq)
-			float dt = 1.0f / 120.0f; // timer runs at 120Hz
-			updateParticles(dt);
-			// periodic live-sync of particle parameters from AudioState
-			if (++particleSyncCounter >= particleSyncInterval)
-			{
-				particleSyncCounter = 0;
-				particleGravityLocal = audioState.particleGravity.load();
-				particleInitVyLocal = audioState.particleInitVy.load();
-				particleFadeRateLocal = audioState.particleFadeRate.load();
-				particleRadiusLocal = audioState.particleRadius.load();
-				particleSpawnStepLocal = std::max(1, audioState.particleSpawnStep.load());
-				particleMaxCountLocal = std::max(1, audioState.particleMaxCount.load());
 			}
 
-			drawNextFrameOfSpectrum();
-			nextFFTBlockReady = false;
-			repaint();
 		}
 	}
 
-
-	void updateParticles(float dt)
-	{
-		if (particles.empty()) return;
-
-		// simple Euler integration + fade
-		// use cached local parameters where possible for performance
-		float gravity = particleGravityLocal;
-		float fadeRate = particleFadeRateLocal;
-		int maxCountLocal = particleMaxCountLocal;
-		for (size_t i = 0; i < particles.size(); )
+		void timerCallback() override
 		{
-			auto &p = particles[i];
-			p.vy += gravity * dt;
-			p.y += p.vy * dt;
-			p.alpha -= fadeRate * dt;
+			if (nextFFTBlockReady)
+			{
+				// update particle physics (approx dt based on timer freq)
+				float dt = 1.0f / 120.0f; // timer runs at 120Hz
+				updateParticles(dt);
+				// periodic live-sync of particle parameters from AudioState
+				if (++particleSyncCounter >= particleSyncInterval)
+				{
+					particleSyncCounter = 0;
+					particleGravityLocal = audioState.particleGravity.load();
+					particleInitVyLocal = audioState.particleInitVy.load();
+					particleFadeRateLocal = audioState.particleFadeRate.load();
+					particleRadiusLocal = audioState.particleRadius.load();
+					particleSpawnStepLocal = std::max(1, audioState.particleSpawnStep.load());
+					particleMaxCountLocal = std::max(1, audioState.particleMaxCount.load());
+				}
 
-			// remove if invisible or out of bounds
-			if (p.alpha <= 0.0f || p.y > (float)getHeight() + 10.0f)
-			{
-				// swap-remove for efficiency
-				particles[i] = particles.back();
-				particles.pop_back();
-			}
-			else
-			{
-				++i;
+				drawNextFrameOfSpectrum();
+				nextFFTBlockReady = false;
+				repaint();
+
+
 			}
 		}
-	}
 
-	void paint(juce::Graphics& g) override
-	{
-		g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
 
-		auto bounds = getLocalBounds().toFloat();
-
-		// If we have an offscreen rendered image, blit it — much cheaper than re-drawing the path every frame
-		if (!spectrumImage.isNull())
+		void updateParticles(float dt)
 		{
-			g.drawImageAt(spectrumImage, 0, 0);
+			if (particles.empty()) return;
+
+			// simple Euler integration + fade
+			// use cached local parameters where possible for performance
+			float gravity = particleGravityLocal;
+			float fadeRate = particleFadeRateLocal;
+			int maxCountLocal = particleMaxCountLocal;
+			for (size_t i = 0; i < particles.size(); )
+			{
+				auto& p = particles[i];
+				p.vy += gravity * dt;
+				p.y += p.vy * dt;
+				p.alpha -= fadeRate * dt;
+
+				// remove if invisible or out of bounds
+				if (p.alpha <= 0.0f || p.y > (float)getHeight() + 10.0f)
+				{
+					// swap-remove for efficiency
+					particles[i] = particles.back();
+					particles.pop_back();
+				}
+				else
+				{
+					++i;
+				}
+			}
 		}
-		else
+
+		void paint(juce::Graphics & g) override
 		{
-			g.fillAll(juce::Colours::black);
-			g.setColour(juce::Colours::lime);
+			g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
 
 			auto bounds = getLocalBounds().toFloat();
 
-			juce::Path tmpPath;
-			tmpPath.startNewSubPath(0.0f, bounds.getBottom());
-
-			for (size_t i = 1; i < scopeData.size(); ++i)
+			// If we have an offscreen rendered image, blit it — much cheaper than re-drawing the path every frame
+			if (!spectrumImage.isNull())
 			{
-				auto x = juce::jmap<float>(
-					static_cast<float>(i),
-					0.0f,
-					static_cast<float>(scopeData.size() - 1),
-					0.0f,
-					bounds.getWidth());
+				g.drawImageAt(spectrumImage, 0, 0);
+			}
+			else
+			{
+				g.fillAll(juce::Colours::black);
+				g.setColour(juce::Colours::lime);
 
-				auto y = juce::jmap<float>(
-					scopeData[i],
-					0.0f,
-					1.0f,
-					bounds.getBottom(),
-					bounds.getY());
+				auto bounds = getLocalBounds().toFloat();
 
-				tmpPath.lineTo(x, y);
+				juce::Path tmpPath;
+				tmpPath.startNewSubPath(0.0f, bounds.getBottom());
+
+				for (size_t i = 1; i < scopeData.size(); ++i)
+				{
+					auto x = juce::jmap<float>(
+						static_cast<float>(i),
+						0.0f,
+						static_cast<float>(scopeData.size() - 1),
+						0.0f,
+						bounds.getWidth());
+
+					auto y = juce::jmap<float>(
+						scopeData[i],
+						0.0f,
+						1.0f,
+						bounds.getBottom(),
+						bounds.getY());
+
+					tmpPath.lineTo(x, y);
+				}
+
+				g.setColour(juce::Colours::lime.withAlpha(0.2f));
+				g.fillPath(tmpPath);
+
+				g.setColour(juce::Colours::lime.withAlpha(0.9f));
+				g.strokePath(tmpPath, juce::PathStrokeType(1.5f));
 			}
 
-			g.setColour(juce::Colours::lime.withAlpha(0.2f));
-			g.fillPath(tmpPath);
 
-			g.setColour(juce::Colours::lime.withAlpha(0.9f));
-			g.strokePath(tmpPath, juce::PathStrokeType(1.5f));
+			////soft glow
+			//g.setColour(juce::Colours::lime.withAlpha(0.08f));
+			//g.strokePath(spectrumPath, juce::PathStrokeType(6.0f));
+
+			//g.setColour(juce::Colours::lime.withAlpha(0.4f));
+			//g.strokePath(spectrumPath, juce::PathStrokeType(3.0f));
+
+			g.setColour(juce::Colours::lime.withAlpha(1.0f));
+			g.strokePath(spectrumPath, juce::PathStrokeType(1.0f));
+
+			//draw frequ achse
+
+			g.setColour(juce::Colours::grey);
+
+			std::array<float, 10> freqs =
+			{
+				20.0f, 50.0f, 100.0f, 200.0f, 500.0f,
+				1000.0f, 2000.0f, 5000.0f, 10000.0f, 20000.0f
+			};
+
+			for (auto freq : freqs)
+			{
+				auto x = frequencyToX(freq, bounds.getWidth());
+
+				// Tick
+				g.drawVerticalLine((int)x, (int)bounds.getBottom() - 10, (int)bounds.getBottom());
+
+				// Beschriftung
+				juce::String label;
+
+				if (freq >= 1000.0f)	label = juce::String(freq / 1000.0f, 0) + "k";
+				else					label = juce::String((int)freq);
+
+				g.drawText(label,
+					(int)x - 20,
+					(int)bounds.getBottom() - 20,
+					40,
+					15,
+					juce::Justification::centred);
+			}
+
 		}
 
-
-		//soft glow
-		//g.setColour(juce::Colours::lime.withAlpha(0.08f));
-		//g.strokePath(spectrumPath, juce::PathStrokeType(6.0f));
-
-		//g.setColour(juce::Colours::lime.withAlpha(0.4f));
-		//g.strokePath(spectrumPath, juce::PathStrokeType(3.0f));
-
-		//g.setColour(juce::Colours::lime.withAlpha(1.0f));
-		//g.strokePath(spectrumPath, juce::PathStrokeType(1.2f));
-
-		//draw frequ achse
-
-		g.setColour(juce::Colours::grey);
-
-		std::array<float, 10> freqs =
+		void resized() override
 		{
-			20.0f, 50.0f, 100.0f, 200.0f, 500.0f,
-			1000.0f, 2000.0f, 5000.0f, 10000.0f, 20000.0f
-		};
 
-		for (auto freq : freqs)
-		{
-			auto x = frequencyToX(freq, bounds.getWidth());
+			auto newSize = std::max(1, getWidth());
 
-			// Tick
-			g.drawVerticalLine((int)x, (int)bounds.getBottom() - 10, (int)bounds.getBottom());
+			scopeData.resize(newSize);
+			fftSmoothed.resize(newSize);
+			fftLookup.resize(newSize);
 
-			// Beschriftung
-			juce::String label;
+			rebuildFFTLookup();
 
-			if (freq >= 1000.0f)	label = juce::String(freq / 1000.0f, 0) + "k";
-			else					label = juce::String((int)freq);
 
-			g.drawText(label,
-				(int)x - 20,
-				(int)bounds.getBottom() - 20,
-				40,
-				15,
-				juce::Justification::centred);
 		}
 
-	}
-
-	void resized() override
-	{
-
-		auto newSize = std::max(1, getWidth());
-
-		scopeData.resize(newSize);
-		fftSmoothed.resize(newSize);
-		fftLookup.resize(newSize);
-
-		rebuildFFTLookup();
-
-
-	}
-
-	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScopeComponent)
-};
+		JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScopeComponent)
+	};

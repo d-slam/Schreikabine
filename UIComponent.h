@@ -58,6 +58,88 @@ public:
 		lbl_FFTSmooth->attachToComponent(sld_FFTSmooth.get(), false);
 
 		///////////////////////////////////////////
+		///////////////////////////////////////////
+		// gain control
+
+		sld_gain.reset(new juce::Slider("slider_gain"));
+		addAndMakeVisible(sld_gain.get());
+		sld_gain->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_gain->setRange(-30.0, 60.0, 0.1); // -30 dB .. +30 dB
+		sld_gain->setValue((double)audioState.gain_dB.load());
+		sld_gain->setTextValueSuffix(" dB");
+		sld_gain->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_gain->onValueChange = [this] { audioState.gain_dB.store(static_cast<float>(sld_gain->getValue())); };
+		sld_gain->setBounds(elementWidth * 6, labelHeight, elementWidth, elementHeight);
+		sld_gain->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_gain.reset(new juce::Label("label_gain"));
+		addAndMakeVisible(lbl_gain.get());
+		lbl_gain->setText("gain dB", juce::NotificationType::dontSendNotification);
+		lbl_gain->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_gain->setJustificationType(juce::Justification::centred);
+		lbl_gain->attachToComponent(sld_gain.get(), false);
+
+		// glow control (separate from gain)
+
+		sld_glow.reset(new juce::Slider("slider_glow"));
+		addAndMakeVisible(sld_glow.get());
+		sld_glow->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_glow->setRange(0.0, 3.0, 0.01); // 0..3 multiplier
+		sld_glow->setValue((double)audioState.glow.load());
+		sld_glow->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_glow->onValueChange = [this] { audioState.glow.store(static_cast<float>(sld_glow->getValue())); };
+		sld_glow->setBounds(elementWidth * 7, labelHeight, elementWidth, elementHeight);
+		sld_glow->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_glow.reset(new juce::Label("label_glow"));
+		addAndMakeVisible(lbl_glow.get());
+		lbl_glow->setText("glow", juce::NotificationType::dontSendNotification);
+		lbl_glow->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_glow->setJustificationType(juce::Justification::centred);
+		lbl_glow->attachToComponent(sld_glow.get(), false);
+
+		sld_glowAmount.reset(new juce::Slider("slider_glowAmount"));
+		addAndMakeVisible(sld_glowAmount.get());
+		sld_glowAmount->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_glowAmount->setRange(0.0, 1.0, 0.01);
+		sld_glowAmount->setValue((double)audioState.glowAmount.load());
+		sld_glowAmount->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_glowAmount->onValueChange = [this] { audioState.glowAmount.store(static_cast<float>(sld_glowAmount->getValue())); };
+		sld_glowAmount->setBounds(elementWidth * 7, (labelHeight * 2) + (elementHeight * 2), elementWidth, elementHeight);
+		sld_glowAmount->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_glowAmount.reset(new juce::Label("label_glowAmount"));
+		addAndMakeVisible(lbl_glowAmount.get());
+		lbl_glowAmount->setText("glow amt", juce::NotificationType::dontSendNotification);
+		lbl_glowAmount->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_glowAmount->setJustificationType(juce::Justification::centred);
+		lbl_glowAmount->attachToComponent(sld_glowAmount.get(), false);
+
+		sld_scopeNormFactor.reset(new juce::Slider("slider_scopeNormFactor"));
+		addAndMakeVisible(sld_scopeNormFactor.get());
+		sld_scopeNormFactor->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_scopeNormFactor->setRange(0.1, 10.0, 0.01);
+		sld_scopeNormFactor->setSkewFactorFromMidPoint(1.0);
+		sld_scopeNormFactor->setValue((double)audioState.scopeNormFactor.load());
+		sld_scopeNormFactor->setTextValueSuffix(" x");
+		sld_scopeNormFactor->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_scopeNormFactor->onValueChange = [this] { audioState.scopeNormFactor.store(static_cast<float>(sld_scopeNormFactor->getValue())); };
+		sld_scopeNormFactor->setBounds(elementWidth * 8, labelHeight, elementWidth, elementHeight);
+		sld_scopeNormFactor->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_scopeNormFactor.reset(new juce::Label("label_scopeNormFactor"));
+		addAndMakeVisible(lbl_scopeNormFactor.get());
+		lbl_scopeNormFactor->setText("norm", juce::NotificationType::dontSendNotification);
+		lbl_scopeNormFactor->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_scopeNormFactor->setJustificationType(juce::Justification::centred);
+		lbl_scopeNormFactor->attachToComponent(sld_scopeNormFactor.get(), false);
+
+		btn_scopeAutoNormalize.reset(new juce::ToggleButton("auto norm"));
+		addAndMakeVisible(btn_scopeAutoNormalize.get());
+		btn_scopeAutoNormalize->setToggleState(audioState.scopeAutoNormalize.load(), juce::dontSendNotification);
+		btn_scopeAutoNormalize->onClick = [this] { audioState.scopeAutoNormalize.store(btn_scopeAutoNormalize->getToggleState()); };
+		btn_scopeAutoNormalize->setBounds(elementWidth * 8, (labelHeight * 2) + (elementHeight * 2), elementWidth + 30, labelHeight + 8);
+
 
 		sld_DisplaySmooth.reset(new juce::Slider("slider_DisplaySmooth"));
 		addAndMakeVisible(sld_DisplaySmooth.get());
@@ -218,7 +300,8 @@ public:
 		sld_particleSpawnStep.reset(new juce::Slider("slider_particleSpawnStep"));
 		addAndMakeVisible(sld_particleSpawnStep.get());
 		sld_particleSpawnStep->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
-		sld_particleSpawnStep->setRange(1, 64, 1);
+		sld_particleSpawnStep->setRange(1, 32, 1);
+		sld_particleSpawnStep->setSkewFactorFromMidPoint(8);
 		sld_particleSpawnStep->setValue((int)audioState.particleSpawnStep.load());
 		sld_particleSpawnStep->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
 		sld_particleSpawnStep->onValueChange = [this] { audioState.particleSpawnStep.store(static_cast<int>(sld_particleSpawnStep->getValue())); };
@@ -235,7 +318,7 @@ public:
 		sld_particleMaxCount.reset(new juce::Slider("slider_particleMaxCount"));
 		addAndMakeVisible(sld_particleMaxCount.get());
 		sld_particleMaxCount->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
-		sld_particleMaxCount->setRange(100, 20000, 100);
+		sld_particleMaxCount->setRange(1000, 50000, 100);
 		sld_particleMaxCount->setValue((int)audioState.particleMaxCount.load());
 		sld_particleMaxCount->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
 		sld_particleMaxCount->onValueChange = [this] { audioState.particleMaxCount.store(static_cast<int>(sld_particleMaxCount->getValue())); };
@@ -266,6 +349,12 @@ public:
 		sld_particleRadius, lbl_particleRadius = nullptr;
 		sld_particleSpawnStep, lbl_particleSpawnStep = nullptr;
 		sld_particleMaxCount, lbl_particleMaxCount = nullptr;
+
+		sld_gain, lbl_gain = nullptr;
+		sld_glow, lbl_glow = nullptr;
+		sld_glowAmount, lbl_glowAmount = nullptr;
+		sld_scopeNormFactor, lbl_scopeNormFactor = nullptr;
+		btn_scopeAutoNormalize = nullptr;
 	}
 
 	void resize() {}
@@ -308,6 +397,20 @@ public:
 
 	std::unique_ptr<juce::Slider> sld_particleMaxCount;
 	std::unique_ptr<juce::Label> lbl_particleMaxCount;
+
+	// gain control
+	std::unique_ptr<juce::Slider> sld_gain;
+	std::unique_ptr<juce::Label> lbl_gain;
+
+	// glow control
+	std::unique_ptr<juce::Slider> sld_glow;
+	std::unique_ptr<juce::Label> lbl_glow;
+	std::unique_ptr<juce::Slider> sld_glowAmount;
+	std::unique_ptr<juce::Label> lbl_glowAmount;
+
+	std::unique_ptr<juce::Slider> sld_scopeNormFactor;
+	std::unique_ptr<juce::Label> lbl_scopeNormFactor;
+	std::unique_ptr<juce::ToggleButton> btn_scopeAutoNormalize;
 
 
 private:
