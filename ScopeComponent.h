@@ -333,165 +333,189 @@ private:
 		}
 	}
 
-		void timerCallback() override
+	void timerCallback() override
+	{
+		if (nextFFTBlockReady)
 		{
-			if (nextFFTBlockReady)
+			// update particle physics (approx dt based on timer freq)
+			float dt = 1.0f / 120.0f; // timer runs at 120Hz
+			updateParticles(dt);
+			// periodic live-sync of particle parameters from AudioState
+			if (++particleSyncCounter >= particleSyncInterval)
 			{
-				// update particle physics (approx dt based on timer freq)
-				float dt = 1.0f / 120.0f; // timer runs at 120Hz
-				updateParticles(dt);
-				// periodic live-sync of particle parameters from AudioState
-				if (++particleSyncCounter >= particleSyncInterval)
-				{
-					particleSyncCounter = 0;
-					particleGravityLocal = audioState.particleGravity.load();
-					particleInitVyLocal = audioState.particleInitVy.load();
-					particleFadeRateLocal = audioState.particleFadeRate.load();
-					particleRadiusLocal = audioState.particleRadius.load();
-					particleSpawnStepLocal = std::max(1, audioState.particleSpawnStep.load());
-					particleMaxCountLocal = std::max(1, audioState.particleMaxCount.load());
-				}
-
-				drawNextFrameOfSpectrum();
-				nextFFTBlockReady = false;
-				repaint();
-
-
+				particleSyncCounter = 0;
+				particleGravityLocal = audioState.particleGravity.load();
+				particleInitVyLocal = audioState.particleInitVy.load();
+				particleFadeRateLocal = audioState.particleFadeRate.load();
+				particleRadiusLocal = audioState.particleRadius.load();
+				particleSpawnStepLocal = std::max(1, audioState.particleSpawnStep.load());
+				particleMaxCountLocal = std::max(1, audioState.particleMaxCount.load());
 			}
+
+			drawNextFrameOfSpectrum();
+			nextFFTBlockReady = false;
+			repaint();
+
+
 		}
+	}
 
 
-		void updateParticles(float dt)
+	void updateParticles(float dt)
+	{
+		if (particles.empty()) return;
+
+		// simple Euler integration + fade
+		// use cached local parameters where possible for performance
+		float gravity = particleGravityLocal;
+		float fadeRate = particleFadeRateLocal;
+		int maxCountLocal = particleMaxCountLocal;
+		for (size_t i = 0; i < particles.size(); )
 		{
-			if (particles.empty()) return;
+			auto& p = particles[i];
+			p.vy += gravity * dt;
+			p.y += p.vy * dt;
+			p.alpha -= fadeRate * dt;
 
-			// simple Euler integration + fade
-			// use cached local parameters where possible for performance
-			float gravity = particleGravityLocal;
-			float fadeRate = particleFadeRateLocal;
-			int maxCountLocal = particleMaxCountLocal;
-			for (size_t i = 0; i < particles.size(); )
+			// remove if invisible or out of bounds
+			if (p.alpha <= 0.0f || p.y > (float)getHeight() + 10.0f)
 			{
-				auto& p = particles[i];
-				p.vy += gravity * dt;
-				p.y += p.vy * dt;
-				p.alpha -= fadeRate * dt;
-
-				// remove if invisible or out of bounds
-				if (p.alpha <= 0.0f || p.y > (float)getHeight() + 10.0f)
-				{
-					// swap-remove for efficiency
-					particles[i] = particles.back();
-					particles.pop_back();
-				}
-				else
-				{
-					++i;
-				}
-			}
-		}
-
-		void paint(juce::Graphics & g) override
-		{
-			g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
-
-			auto bounds = getLocalBounds().toFloat();
-
-			// If we have an offscreen rendered image, blit it — much cheaper than re-drawing the path every frame
-			if (!spectrumImage.isNull())
-			{
-				g.drawImageAt(spectrumImage, 0, 0);
+				// swap-remove for efficiency
+				particles[i] = particles.back();
+				particles.pop_back();
 			}
 			else
 			{
-				g.fillAll(juce::Colours::black);
-				g.setColour(juce::Colours::lime);
+				++i;
+			}
+		}
+	}
 
-				auto bounds = getLocalBounds().toFloat();
+	void paint(juce::Graphics& g) override
+	{
+		g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
 
-				juce::Path tmpPath;
-				const float firstY = juce::jmap<float>(scopeData.empty() ? 0.0f : scopeData[0], 0.0f, 1.0f, bounds.getBottom(), bounds.getY());
-				tmpPath.startNewSubPath(0.0f, firstY);
+		auto bounds = getLocalBounds().toFloat();
 
-				for (size_t i = 1; i < scopeData.size(); ++i)
-				{
-					auto x = juce::jmap<float>(
-						static_cast<float>(i),
-						0.0f,
-						static_cast<float>(scopeData.size() - 1),
-						0.0f,
-						bounds.getWidth());
+		// If we have an offscreen rendered image, blit it — much cheaper than re-drawing the path every frame
+		if (!spectrumImage.isNull())
+		{
+			g.drawImageAt(spectrumImage, 0, 0);
+		}
+		else
+		{
+			g.fillAll(juce::Colours::black);
+			g.setColour(juce::Colours::lime);
 
-					auto y = juce::jmap<float>(
-						scopeData[i],
-						0.0f,
-						1.0f,
-						bounds.getBottom(),
-						bounds.getY());
+			auto bounds = getLocalBounds().toFloat();
 
-					tmpPath.lineTo(x, y);
-				}
+			juce::Path tmpPath;
+			const float firstY = juce::jmap<float>(scopeData.empty() ? 0.0f : scopeData[0], 0.0f, 1.0f, bounds.getBottom(), bounds.getY());
+			tmpPath.startNewSubPath(0.0f, firstY);
 
-				g.setColour(juce::Colours::lime.withAlpha(0.2f));
-				juce::Path tmpFillPath(tmpPath);
-				tmpFillPath.lineTo(0.0f, bounds.getBottom());
-				tmpFillPath.closeSubPath();
-				g.fillPath(tmpFillPath);
+			for (size_t i = 1; i < scopeData.size(); ++i)
+			{
+				auto x = juce::jmap<float>(
+					static_cast<float>(i),
+					0.0f,
+					static_cast<float>(scopeData.size() - 1),
+					0.0f,
+					bounds.getWidth());
 
-				g.setColour(juce::Colours::lime.withAlpha(0.9f));
-				g.strokePath(tmpPath, juce::PathStrokeType(1.5f));
+				auto y = juce::jmap<float>(
+					scopeData[i],
+					0.0f,
+					1.0f,
+					bounds.getBottom(),
+					bounds.getY());
+
+				tmpPath.lineTo(x, y);
 			}
 
+			g.setColour(juce::Colours::lime.withAlpha(0.2f));
+			juce::Path tmpFillPath(tmpPath);
+			tmpFillPath.lineTo(0.0f, bounds.getBottom());
+			tmpFillPath.closeSubPath();
+			g.fillPath(tmpFillPath);
 
-			////soft glow
-			//g.setColour(juce::Colours::lime.withAlpha(0.08f));
-			//g.strokePath(spectrumPath, juce::PathStrokeType(6.0f));
-
-			//g.setColour(juce::Colours::lime.withAlpha(0.4f));
-			//g.strokePath(spectrumPath, juce::PathStrokeType(3.0f));
-
-			g.setColour(juce::Colours::lime.withAlpha(1.0f));
-			g.strokePath(spectrumPath, juce::PathStrokeType(1.0f));
-
-			//draw frequ achse
-
-			g.setColour(juce::Colours::grey);
-
-			std::array<float, 10> freqs =
-			{
-				20.0f, 50.0f, 100.0f, 200.0f, 500.0f,
-				1000.0f, 2000.0f, 5000.0f, 10000.0f, 20000.0f
-			};
-
-			for (auto freq : freqs)
-			{
-				auto x = frequencyToX(freq, bounds.getWidth());
-
-				// Tick
-				g.drawVerticalLine((int)x, (int)bounds.getBottom() - 10, (int)bounds.getBottom());
-
-				// Beschriftung
-				juce::String label;
-
-				if (freq >= 1000.0f)	label = juce::String(freq / 1000.0f, 0) + "k";
-				else					label = juce::String((int)freq);
-
-				g.drawText(label,
-					(int)x - 20,
-					(int)bounds.getBottom() - 20,
-					40,
-					15,
-					juce::Justification::centred);
-			}
-
+			g.setColour(juce::Colours::lime.withAlpha(0.9f));
+			g.strokePath(tmpPath, juce::PathStrokeType(1.5f));
 		}
 
-		void resized() override
-		{
+
+		////soft glow
+		//g.setColour(juce::Colours::lime.withAlpha(0.08f));
+		//g.strokePath(spectrumPath, juce::PathStrokeType(6.0f));
+
+		//g.setColour(juce::Colours::lime.withAlpha(0.4f));
+		//g.strokePath(spectrumPath, juce::PathStrokeType(3.0f));
+
+		g.setColour(juce::Colours::lime.withAlpha(1.0f));
+		g.strokePath(spectrumPath, juce::PathStrokeType(1.0f));
+
+		//draw frequ achse
+
+		//g.setColour(juce::Colours::grey);
+
+		//std::array<float, 10> freqs =
+		//{
+		//	20.0f, 50.0f, 100.0f, 200.0f, 500.0f,
+		//	1000.0f, 2000.0f, 5000.0f, 10000.0f, 20000.0f
+		//};
+
+		//for (auto freq : freqs)
+		//{
+		//	auto x = frequencyToX(freq, bounds.getWidth());
+
+		//	// Tick
+		//	g.drawVerticalLine((int)x, (int)bounds.getBottom() - 10, (int)bounds.getBottom());
+
+		//	// FabFilter-style dashed guide line
+		//	g.setColour(juce::Colours::grey.withAlpha(0.28f));
+		//	const float dashLengths[] = { 3.0f, 3.0f };
+		//	g.drawDashedLine(juce::Line<float>(x, bounds.getY() + 6.0f, x, bounds.getBottom() - 12.0f), dashLengths, 2, 1.0f);
+		//	g.setColour(juce::Colours::grey);
+
+		//	// Beschriftung
+		//	juce::String label;
+
+		//	if (freq >= 1000.0f)	label = juce::String(freq / 1000.0f, 0) + "k";
+		//	else					label = juce::String((int)freq);
+
+		//	g.drawText(label,
+		//		(int)x - 20,
+		//		(int)bounds.getBottom() - 20,
+		//		40,
+		//		15,
+		//		juce::Justification::centred);
+		//}
+
+		// simple dB hint: only label + arrow at top-left
+		g.setColour(juce::Colours::grey.withAlpha(0.8f));
+		g.drawText("dB",
+			(int)bounds.getX() + 4,
+			(int)bounds.getY() + 32,
+			24,
+			14,
+			juce::Justification::left);
+
+		const float arrowX = bounds.getX() + 12.0f;
+		juce::Path dbArrow;
+		dbArrow.startNewSubPath(arrowX, bounds.getY() + 28.0f);
+		dbArrow.lineTo(arrowX, bounds.getY() + 10.0f);
+		dbArrow.lineTo(arrowX - 3.5f, bounds.getY() + 14.0f);
+		dbArrow.startNewSubPath(arrowX, bounds.getY() + 10.0f);
+		dbArrow.lineTo(arrowX + 3.5f, bounds.getY() + 14.0f);
+		g.strokePath(dbArrow, juce::PathStrokeType(1.0f));
+
+	}
+
+	void resized() override
+	{
 		updateRenderResolution();
 
 
-		}
+	}
 
-		JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScopeComponent)
-	};
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ScopeComponent)
+};
