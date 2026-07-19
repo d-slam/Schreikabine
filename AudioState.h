@@ -24,8 +24,8 @@ struct AudioState
 	std::atomic<float> displaySmooth{ 0.15f };
 
 	std::atomic<float> dbMin{ -100 };		//sollte int sein...
-	std::atomic<float> scopeNormFactor{ 1.0f };
-	std::atomic<bool> scopeAutoNormalize{ false };
+	std::atomic<float> scopeNormFactor{ 1.68f };
+	std::atomic<bool> scopeAutoNormalize{ true };
 
 
 	// spec comp
@@ -38,22 +38,22 @@ struct AudioState
 	//filter
 
 	// filter cutoff (high-pass)
-	std::atomic<double> hp_cutoff{ 100 };
+	std::atomic<double> hp_cutoff{ 60 };
 
 	// particle parameters for ScopeComponent (modifiable via UI)
-	std::atomic<float> particleGravity{ 580 };
-	std::atomic<float> particleInitVy{ 78.0f };
-	std::atomic<float> particleFadeRate{ 0.8f };
+	std::atomic<float> particleGravity{ 716 };
+	std::atomic<float> particleInitVy{ 130.0f };
+	std::atomic<float> particleFadeRate{ 3.46f };
 	std::atomic<float> particleRadius{ 1.0f };
-	std::atomic<int> particleSpawnStep{ 5 };
+	std::atomic<int> particleSpawnStep{ 10 };
 	std::atomic<int> particleMaxCount{ 50000 };
 
 	// global gain for display / processing (in dB)
 	std::atomic<float> gain_dB{ 60.0f };
 	// separate glow multiplier for spectrum rendering (0.0 .. 3.0)
-	std::atomic<float> glow{ 1.0f };
+	std::atomic<float> glow{ 0.75f };
 	// scales how strongly signal magnitude affects glow (0..1)
-	std::atomic<float> glowAmount{ 0.0f };
+	std::atomic<float> glowAmount{ 0.91f };
 
 
 

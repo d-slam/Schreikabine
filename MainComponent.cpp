@@ -110,17 +110,17 @@ void MainComponent::resized()
 	auto area = getLocalBounds();
 
 	// reserve right column for UI (approx 1/3 of width, min 220px)
-	int rightWidth = juce::jmax(220, area.getWidth() / 3);
-	auto rightCol = area.removeFromRight(rightWidth);
+	//int rightWidth = juce::jmax(220, area.getWidth() / 3);
+	//auto rightCol = area.removeFromRight(rightWidth);
 
 	// scope takes remaining (left) area
 	scopeComponent->setBounds(area);
 
 	// UI gets top portion of right column
-	int uiHeight = rightCol.getHeight() * 2 / 3;
-	auto uiBounds = rightCol.removeFromTop(uiHeight);
-	uiComponent->setBounds(uiBounds);
+	//int uiHeight = rightCol.getHeight() * 2 / 3;
+	//auto uiBounds = rightCol.removeFromTop(uiHeight);
+	uiComponent->setBounds(area);
 
 	// audio device panel (if present) takes the remaining bottom part of right column
-	audioGeraet->setBounds(rightCol);
+	//audioGeraet->setBounds(rightCol);
 }

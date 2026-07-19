@@ -318,7 +318,7 @@ public:
 		sld_particleMaxCount.reset(new juce::Slider("slider_particleMaxCount"));
 		addAndMakeVisible(sld_particleMaxCount.get());
 		sld_particleMaxCount->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
-		sld_particleMaxCount->setRange(1000, 50000, 100);
+		sld_particleMaxCount->setRange(1000, 100000, 100);
 		sld_particleMaxCount->setValue((int)audioState.particleMaxCount.load());
 		sld_particleMaxCount->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
 		sld_particleMaxCount->onValueChange = [this] { audioState.particleMaxCount.store(static_cast<int>(sld_particleMaxCount->getValue())); };
