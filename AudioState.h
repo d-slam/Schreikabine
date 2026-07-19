@@ -26,6 +26,7 @@ struct AudioState
 	std::atomic<float> dbMin{ -100 };		//sollte int sein...
 	std::atomic<float> scopeNormFactor{ 1.68f };
 	std::atomic<bool> scopeAutoNormalize{ true };
+	std::atomic<float> scopeRenderScale{ 1.0f };
 
 
 	// spec comp

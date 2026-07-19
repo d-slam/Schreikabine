@@ -26,6 +26,8 @@ public:
 	//==============================================================================
 	void paint(juce::Graphics& g) override;
 	void resized() override;
+	bool keyPressed(const juce::KeyPress& key) override;
+	void visibilityChanged() override;
 
 private:
 
@@ -38,6 +40,7 @@ private:
 	std::unique_ptr<UIComponent> uiComponent;
 	std::unique_ptr<ScopeComponent> scopeComponent;
 	std::unique_ptr<AudioGeraete> audioGeraet;
+	bool uiVisible { true };
 
 
 	using IIRStage = juce::dsp::IIR::Filter<float>;

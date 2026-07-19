@@ -4,6 +4,8 @@
 MainComponent::MainComponent()
 {
 	setAudioChannels(2, 0);  // we want a couple of input channels but no outputs
+	setWantsKeyboardFocus(true);
+	setMouseClickGrabsKeyboardFocus(true);
 
 	scopeComponent.reset(new ScopeComponent(audioState));	addAndMakeVisible(scopeComponent.get());
 	uiComponent.reset(new UIComponent(audioState));			addAndMakeVisible(uiComponent.get());
@@ -119,8 +121,30 @@ void MainComponent::resized()
 	// UI gets top portion of right column
 	//int uiHeight = rightCol.getHeight() * 2 / 3;
 	//auto uiBounds = rightCol.removeFromTop(uiHeight);
-	uiComponent->setBounds(area);
+	if (uiVisible)
+		uiComponent->setBounds(area);
 
 	// audio device panel (if present) takes the remaining bottom part of right column
 	//audioGeraet->setBounds(rightCol);
+}
+
+bool MainComponent::keyPressed(const juce::KeyPress& key)
+{
+	if (key.getTextCharacter() == 'm' || key.getTextCharacter() == 'M')
+	{
+		uiVisible = !uiVisible;
+		if (uiComponent != nullptr)
+			uiComponent->setVisible(uiVisible);
+		resized();
+		repaint();
+		return true;
+	}
+
+	return false;
+}
+
+void MainComponent::visibilityChanged()
+{
+	if (isShowing())
+		grabKeyboardFocus();
 }

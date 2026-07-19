@@ -167,10 +167,26 @@ private:
 		return norm * width;
 	}
 
+	void updateRenderResolution()
+	{
+		const float scale = juce::jlimit(0.1f, 1.0f, audioState.scopeRenderScale.load());
+		const int desiredPoints = juce::jmax(1, (int)std::round((float)getWidth() * scale));
+
+		if ((int)scopeData.size() != desiredPoints)
+		{
+			scopeData.resize((size_t)desiredPoints);
+			fftSmoothed.resize((size_t)desiredPoints);
+			fftLookup.resize((size_t)desiredPoints);
+			rebuildFFTLookup();
+		}
+	}
+
 
 
 	void drawNextFrameOfSpectrum()
 	{
+		updateRenderResolution();
+
 		window.multiplyWithWindowingTable(fftData, fftSize);
 
 		forwardFFT.performFrequencyOnlyForwardTransform(fftData);
@@ -227,7 +243,8 @@ private:
 				gi.fillAll(juce::Colours::black);
 
 				spectrumPath.clear();
-				spectrumPath.startNewSubPath(0.0f, (float)getHeight());
+				const float firstY = juce::jmap<float>(scopeData.empty() ? 0.0f : scopeData[0], 0.0f, 1.0f, (float)getHeight(), 0.0f);
+				spectrumPath.startNewSubPath(0.0f, firstY);
 
 				for (size_t i = 1; i < scopeData.size(); ++i)
 				{
@@ -273,7 +290,10 @@ private:
 				}
 
 				gi.setColour(juce::Colours::lime.withAlpha(0.2f));
-				gi.fillPath(spectrumPath);
+				juce::Path spectrumFillPath(spectrumPath);
+				spectrumFillPath.lineTo(0.0f, (float)getHeight());
+				spectrumFillPath.closeSubPath();
+				gi.fillPath(spectrumFillPath);
 
 
 				// bloom/glow scaled by UI gain
@@ -390,7 +410,8 @@ private:
 				auto bounds = getLocalBounds().toFloat();
 
 				juce::Path tmpPath;
-				tmpPath.startNewSubPath(0.0f, bounds.getBottom());
+				const float firstY = juce::jmap<float>(scopeData.empty() ? 0.0f : scopeData[0], 0.0f, 1.0f, bounds.getBottom(), bounds.getY());
+				tmpPath.startNewSubPath(0.0f, firstY);
 
 				for (size_t i = 1; i < scopeData.size(); ++i)
 				{
@@ -412,7 +433,10 @@ private:
 				}
 
 				g.setColour(juce::Colours::lime.withAlpha(0.2f));
-				g.fillPath(tmpPath);
+				juce::Path tmpFillPath(tmpPath);
+				tmpFillPath.lineTo(0.0f, bounds.getBottom());
+				tmpFillPath.closeSubPath();
+				g.fillPath(tmpFillPath);
 
 				g.setColour(juce::Colours::lime.withAlpha(0.9f));
 				g.strokePath(tmpPath, juce::PathStrokeType(1.5f));
@@ -464,14 +488,7 @@ private:
 
 		void resized() override
 		{
-
-			auto newSize = std::max(1, getWidth());
-
-			scopeData.resize(newSize);
-			fftSmoothed.resize(newSize);
-			fftLookup.resize(newSize);
-
-			rebuildFFTLookup();
+		updateRenderResolution();
 
 
 		}

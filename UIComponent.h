@@ -140,6 +140,25 @@ public:
 		btn_scopeAutoNormalize->onClick = [this] { audioState.scopeAutoNormalize.store(btn_scopeAutoNormalize->getToggleState()); };
 		btn_scopeAutoNormalize->setBounds(elementWidth * 8, (labelHeight * 2) + (elementHeight * 2), elementWidth + 30, labelHeight + 8);
 
+		sld_scopeRenderScale.reset(new juce::Slider("slider_scopeRenderScale"));
+		addAndMakeVisible(sld_scopeRenderScale.get());
+		sld_scopeRenderScale->setSliderStyle(juce::Slider::SliderStyle::RotaryVerticalDrag);
+		sld_scopeRenderScale->setRange(0.1, 1.0, 0.01);
+		sld_scopeRenderScale->setSkewFactorFromMidPoint(0.5);
+		sld_scopeRenderScale->setValue((double)audioState.scopeRenderScale.load());
+		sld_scopeRenderScale->setTextValueSuffix(" x");
+		sld_scopeRenderScale->setTextBoxStyle(juce::Slider::TextEntryBoxPosition::TextBoxBelow, false, elementWidth, labelHeight);
+		sld_scopeRenderScale->onValueChange = [this] { audioState.scopeRenderScale.store(static_cast<float>(sld_scopeRenderScale->getValue())); };
+		sld_scopeRenderScale->setBounds(elementWidth * 9, labelHeight, elementWidth, elementHeight);
+		sld_scopeRenderScale->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::lime);
+
+		lbl_scopeRenderScale.reset(new juce::Label("label_scopeRenderScale"));
+		addAndMakeVisible(lbl_scopeRenderScale.get());
+		lbl_scopeRenderScale->setText("res", juce::NotificationType::dontSendNotification);
+		lbl_scopeRenderScale->setColour(juce::Label::outlineColourId, juce::Colours::lime);
+		lbl_scopeRenderScale->setJustificationType(juce::Justification::centred);
+		lbl_scopeRenderScale->attachToComponent(sld_scopeRenderScale.get(), false);
+
 
 		sld_DisplaySmooth.reset(new juce::Slider("slider_DisplaySmooth"));
 		addAndMakeVisible(sld_DisplaySmooth.get());
@@ -355,6 +374,7 @@ public:
 		sld_glowAmount, lbl_glowAmount = nullptr;
 		sld_scopeNormFactor, lbl_scopeNormFactor = nullptr;
 		btn_scopeAutoNormalize = nullptr;
+		sld_scopeRenderScale, lbl_scopeRenderScale = nullptr;
 	}
 
 	void resize() {}
@@ -411,6 +431,8 @@ public:
 	std::unique_ptr<juce::Slider> sld_scopeNormFactor;
 	std::unique_ptr<juce::Label> lbl_scopeNormFactor;
 	std::unique_ptr<juce::ToggleButton> btn_scopeAutoNormalize;
+	std::unique_ptr<juce::Slider> sld_scopeRenderScale;
+	std::unique_ptr<juce::Label> lbl_scopeRenderScale;
 
 
 private:

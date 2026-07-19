@@ -75,6 +75,7 @@ public:
            #endif
 
             setVisible (true);
+			//setFullScreen(true);
         }
 
         void closeButtonPressed() override
